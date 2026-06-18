@@ -83,23 +83,43 @@ git clone https://github.com/heruhendri/Hendri-VortexDownloader-Pro.git hendri-d
 cd hendri-downloader
 ```
 
-### Langkah 5: Manajemen RAM Ketat (PENTING untuk NAT VPS / RAM < 1GB)
-Next.js membutuhkan RAM yang memadai saat membuild project (`npm run build`). Jika NAT VPS Anda mengalami kendala kehabisan RAM, pasang virtual memori Swap:
+### Langkah 5: Manajemen RAM Ketat & Membuat SWAP (CRITICAL untuk NAT-VPS / VPS RAM < 1GB)
+Secara default, proses pencarian pohon dependency dan instalasi package (`npm install`) serta compile Next.js memerlukan memori RAM yang cukup besar. Jika RAM server Anda pas-pasan (seperti NAT VPS murni berkapasitas 256MB atau 512MB), shell akan terpaksa menutup proses secara sepihak dan melontarkan error berupa **`npm error spawn ENOMEM`** atau **`npm error code ENOMEM`**.
+
+Untuk mengatasinya, Anda wajib mengalokasikan **Swap Space (Virtual Memory)** minimal **2 GigaBytes (2GB)** di dalam SSD/HDD Ubuntu Anda sebelum melangkah ke proses pemasangan node package.
+
+Jalankan perintah ini satu-persatu di terminal root VPS Anda:
 ```bash
-# Membuat Swap File sebesar 1.5 GB
-sudo fallocate -l 1.5G /swapfile
+# 1. Matikan swapfile lama jika pernah terpasang
+sudo swapoff -a
+
+# 2. Buat file swap murni sebesar 2.5 GB (2560 Megabytes) menggunakan dd (lebih aman dibanding fallocate)
+sudo dd if=/dev/zero of=/swapfile bs=1M count=2560
+
+# 3. Ubah hak akses izin file agar aman
 sudo chmod 600 /swapfile
+
+# 4. Formulasi file tersebut menjadi swap space
 sudo mkswap /swapfile
+
+# 5. Aktifkan swap secara instan
 sudo swapon /swapfile
 
-# Sifat permanen pasca reboot
-echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-```
+# 6. Jadikan pemetaan swap ini permanen sehingga otomatis aktif ketika server melakukan restart/reboot
+# Pertama cek dahulu apakah baris swap sudah ada di fstab, jika belum masukkan secara aman:
+if ! grep -q "/swapfile" /etc/fstab; then
+  echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+fi
 
-### Langkah 6: Install Node Dependencies
-Gunakan npm untuk mengunduh seluruh package yang tercatat di `package.json`:
+# 7. Verifikasi apakah Swap sudah aktif berjalan dengan sukses
+free -h
+```
+*Anda akan melihat baris Swap kini terisi dengan angka kapasitas sekitar ~2.4GiB atau 2.5GiB yang siap menyokong kinerja RAM utama.*
+
+### Langkah 6: Install Node Dependencies (Penghematan Memori Maksimal)
+Gunakan perintah di bawah ini yang telah kami optimalkan untuk mematikan audit security runtime dan penarikan metadata sponsor yang berlebihan demi menghemat overhead server:
 ```bash
-npm install
+npm install --no-audit --no-fund --prefer-offline
 ```
 
 ### Langkah 7: Konfigurasi Environment Variables (`.env`)
@@ -209,11 +229,40 @@ NAT VPS biasanya tidak memiliki akses IPv4 publik langsung, melainkan menggunaka
 
 ---
 
-## ⚠️ MENGATASI ERROR "502 BAD GATEWAY" DI VPS / NAT VPS
+## ⚠️ MENGATASI ERROR "502 BAD GATEWAY" & "npm ENOMEM" DI VPS / NAT VPS
 
-Jika Anda menemui status **502 Bad Gateway** di browser Anda setelah mengonfigurasi Nginx, ini berarti server web **Nginx berjalan dengan baik**, tetapi **tidak dapat terhubung ke aplikasi Next.js** yang seharusmya berjalan di port `3000`.
+Kehabisan RAM atau kegagalan koneksi port Loopback adalah dua hambatan utama yang sering dialami oleh para pengguna VPS minimalis atau NAT-VPS beranggaran ketat. Berikut adalah solusi tuntas untuk mengatasi error-error tersebut:
 
-Ikuti langkah-langkah diagnostik dan solusi berikut untuk mengatasinya secara tuntas:
+### 🚀 SOLUSI: "npm error spawn ENOMEM" atau "npm error code ENOMEM"
+Error ini terjadi ketika sistem operasi kehabisan RAM fisik sat menjalankan installer `npm install` atau builder `npm run build`. 
+Berikut cara memperbaikinya:
+
+1. **Buat SWAP Memory yang Sehat (CRITICAL)**:
+   Jalankan perintah ini sebagai `root` untuk mengalokasikan RAM virtual tambahan sebesar 2.5 GB pada SSD/HDD server Anda:
+   ```bash
+   sudo swapoff -a
+   sudo dd if=/dev/zero of=/swapfile bs=1M count=2560
+   sudo chmod 600 /swapfile
+   sudo mkswap /swapfile
+   sudo swapon /swapfile
+   ```
+   *(Pastikan baris `/swapfile none swap sw 0 0` ada di file `/etc/fstab` agar permanen).*
+
+2. **Gunakan Bendera (Flags) Penghemat RAM saat Instalasi**:
+   Alih-alih `npm install` biasa yang berat, jalankan perintah berstatus hemat memori berikut:
+   ```bash
+   npm install --no-audit --no-fund --prefer-offline
+   ```
+
+3. **Batasi Konsumsi Memori Node.js manual**:
+   Batasi alokasi JavaScript engine v8 garbage collector agar memilah heap space lebih cepat:
+   ```bash
+   NODE_OPTIONS="--max-old-space-size=1024" npm install --no-audit --no-fund
+   ```
+
+---
+
+### Solusi untuk Error Lainnya:
 
 ### 1. Periksa Apakah Aplikasi Next.js Sedang Berjalan (Running)
 Jalan perintah berikut untuk melihat status process PM2:

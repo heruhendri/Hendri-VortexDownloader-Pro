@@ -1,0 +1,6 @@
+{
+  "name": "Hendri VortexDownloader Pro",
+  "description": "Download videos from TikTok, Instagram, YouTube, and more, or integrate with Telegram to send media links directly to your chats.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

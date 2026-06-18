@@ -79,7 +79,7 @@ yt-dlp --version
 ### Langkah 4: Clone Project dari GitHub ke VPS
 Di server Anda, lakukan clone terhadap repositori Anda:
 ```bash
-git clone https://github.com/USERNAME/REPOSITORI-ANDA.git hendri-downloader
+git clone https://github.com/heruhendri/Hendri-VortexDownloader-Pro.git hendri-downloader
 cd hendri-downloader
 ```
 
